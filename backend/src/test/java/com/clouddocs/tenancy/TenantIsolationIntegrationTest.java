@@ -43,6 +43,13 @@ class TenantIsolationIntegrationTest {
 
     @BeforeEach
     void seedTwoTenants() {
+        jdbcTemplate.update("DELETE FROM document_tags");
+        jdbcTemplate.update("UPDATE documents SET current_version_id=NULL");
+        jdbcTemplate.update("DELETE FROM document_versions");
+        jdbcTemplate.update("DELETE FROM documents");
+        jdbcTemplate.update("DELETE FROM folders");
+        jdbcTemplate.update("DELETE FROM tags");
+        jdbcTemplate.update("DELETE FROM audit_events");
         jdbcTemplate.update("DELETE FROM memberships");
         jdbcTemplate.update("DELETE FROM tenants");
         jdbcTemplate.update("DELETE FROM users");

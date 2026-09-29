@@ -1,0 +1,8 @@
+package com.clouddocs.document.api;
+import com.clouddocs.document.application.TagService; import com.clouddocs.document.domain.Tag; import com.clouddocs.identity.application.AuthenticationService; import jakarta.servlet.http.HttpServletRequest; import jakarta.validation.Valid; import org.springframework.http.*; import org.springframework.web.bind.annotation.*; import java.util.*;
+@RestController @RequestMapping("/api/v1/tenants/{tenantId}") public class TagController {private final AuthenticationService authentication;private final TagService service;public TagController(AuthenticationService a,TagService s){authentication=a;service=s;}
+ @PostMapping("/tags") @ResponseStatus(HttpStatus.CREATED) public Tag create(@PathVariable UUID tenantId,@Valid @RequestBody CreateTagRequest b,HttpServletRequest r){return service.create(authentication.requireCurrentUser(r),tenantId,b.name());}
+ @GetMapping("/documents/{documentId}/tags") public List<Tag> list(@PathVariable UUID tenantId,@PathVariable UUID documentId,HttpServletRequest r){return service.list(authentication.requireCurrentUser(r),tenantId,documentId);}
+ @PostMapping("/documents/{documentId}/tags/{tagId}") @ResponseStatus(HttpStatus.NO_CONTENT) public void attach(@PathVariable UUID tenantId,@PathVariable UUID documentId,@PathVariable UUID tagId,HttpServletRequest r){service.attach(authentication.requireCurrentUser(r),tenantId,documentId,tagId);}
+ @DeleteMapping("/documents/{documentId}/tags/{tagId}") @ResponseStatus(HttpStatus.NO_CONTENT) public void remove(@PathVariable UUID tenantId,@PathVariable UUID documentId,@PathVariable UUID tagId,HttpServletRequest r){service.remove(authentication.requireCurrentUser(r),tenantId,documentId,tagId);}
+}
