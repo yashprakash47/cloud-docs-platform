@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:clouddocs;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  flyway:
+    enabled: true
+
+clouddocs:
+  auth:
+    mode: local
+    local:
+      user-header: X-User-Email
+      auto-provision: false

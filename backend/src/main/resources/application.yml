@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: clouddocs-backend
+  profiles:
+    default: local
+  datasource:
+    url: ${CLOUDDOCS_DB_URL:jdbc:h2:mem:clouddocs;MODE=PostgreSQL;DB_CLOSE_DELAY=-1}
+    username: ${CLOUDDOCS_DB_USERNAME:sa}
+    password: ${CLOUDDOCS_DB_PASSWORD:}
+    driver-class-name: ${CLOUDDOCS_DB_DRIVER:org.h2.Driver}
+  flyway:
+    enabled: true
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
+clouddocs:
+  auth:
+    mode: local
+    local:
+      user-header: X-User-Email
+      auto-provision: true
+
+logging:
+  level:
+    root: INFO
+    com.clouddocs: INFO
+
+info:
+  app:
+    name: CloudDocs
+    description: Document management and processing platform

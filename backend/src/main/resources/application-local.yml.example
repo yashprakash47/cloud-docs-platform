@@ -1,0 +1,18 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  # Copy this file to application-local.yml to use PostgreSQL locally.
+  datasource:
+    url: ${CLOUDDOCS_DB_URL:jdbc:postgresql://localhost:5432/clouddocs}
+    username: ${CLOUDDOCS_DB_USERNAME:clouddocs}
+    password: ${CLOUDDOCS_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.clouddocs: DEBUG
