@@ -40,9 +40,14 @@ public class JdbcDocumentRepository {
     public int nextVersion(UUID documentId, UUID tenantId) {
         return jdbc.queryForObject("SELECT COALESCE(MAX(version_number),0)+1 FROM document_versions WHERE document_id=? AND tenant_id=?", Integer.class, documentId, tenantId);
     }
-    public DocumentVersion insertVersion(UUID tenantId, UUID documentId, int version, String ref, String mediaType, long size, String checksum, UUID uploader) {
+
+    public DocumentVersion findVersion(UUID tenantId, UUID documentId, UUID versionId) {
+        return jdbc.query("SELECT * FROM document_versions WHERE tenant_id=? AND document_id=? AND id=?", this::mapVersion, tenantId, documentId, versionId)
+                .stream().findFirst().orElseThrow(() -> new ResourceNotFoundException("Document version not found in this tenant"));
+    }
+    public DocumentVersion insertVersion(UUID tenantId, UUID documentId, int version, String ref, String originalFilename, String contentType, long size, String checksum, UUID uploader) {
         UUID id = UUID.randomUUID();
-        jdbc.update("INSERT INTO document_versions(id,tenant_id,document_id,version_number,storage_reference,media_type,size_bytes,checksum,uploaded_by) VALUES (?,?,?,?,?,?,?,?,?)", id, tenantId, documentId, version, ref, mediaType, size, checksum, uploader);
+        jdbc.update("INSERT INTO document_versions(id,tenant_id,document_id,version_number,storage_reference,original_filename,content_type,size_bytes,checksum,uploaded_by) VALUES (?,?,?,?,?,?,?,?,?,?)", id, tenantId, documentId, version, ref, originalFilename, contentType, size, checksum, uploader);
         jdbc.update("UPDATE documents SET current_version_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=?", id, documentId, tenantId);
         return jdbc.queryForObject("SELECT * FROM document_versions WHERE id=?", this::mapVersion, id);
     }
@@ -50,7 +55,7 @@ public class JdbcDocumentRepository {
         return new Document(rs.getObject("id", UUID.class), rs.getObject("tenant_id", UUID.class), rs.getObject("owner_user_id", UUID.class), rs.getObject("folder_id", UUID.class), rs.getString("name"), rs.getString("description"), DocumentStatus.valueOf(rs.getString("status")), rs.getObject("current_version_id", UUID.class), instant(rs,"created_at"), instant(rs,"updated_at"), instant(rs,"archived_at"));
     }
     private DocumentVersion mapVersion(java.sql.ResultSet rs, int n) throws java.sql.SQLException {
-        return new DocumentVersion(rs.getObject("id", UUID.class), rs.getObject("tenant_id", UUID.class), rs.getObject("document_id", UUID.class), rs.getInt("version_number"), rs.getString("storage_reference"), rs.getString("media_type"), rs.getLong("size_bytes"), rs.getString("checksum"), rs.getObject("uploaded_by", UUID.class), instant(rs,"created_at"));
+        return new DocumentVersion(rs.getObject("id", UUID.class), rs.getObject("tenant_id", UUID.class), rs.getObject("document_id", UUID.class), rs.getInt("version_number"), rs.getString("storage_reference"), rs.getString("original_filename"), rs.getString("content_type"), rs.getLong("size_bytes"), rs.getString("checksum"), rs.getObject("uploaded_by", UUID.class), instant(rs,"created_at"));
     }
     private Instant instant(java.sql.ResultSet rs, String column) throws java.sql.SQLException { Timestamp t = rs.getTimestamp(column); return t == null ? null : t.toInstant(); }
 }
