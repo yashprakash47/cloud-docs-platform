@@ -35,6 +35,40 @@ The local development authentication adapter accepts an `X-User-Email` request h
 
 To use PostgreSQL locally, copy `backend/src/main/resources/application-local.yml.example` to `application-local.yml` and provide `CLOUDDOCS_DB_PASSWORD` through the environment. Flyway applies migrations automatically at startup.
 
+### Document storage
+
+Local filesystem storage is the default and requires no AWS credentials:
+
+```powershell
+$env:CLOUDDOCS_STORAGE_PROVIDER = "local"
+$env:CLOUDDOCS_LOCAL_STORAGE_DIRECTORY = "C:\\temp\\clouddocs-files"
+.\mvnw.cmd spring-boot:run
+```
+
+To use the existing private S3 bucket, select the S3 provider and provide only configuration, never credentials:
+
+```powershell
+$env:CLOUDDOCS_STORAGE_PROVIDER = "s3"
+$env:CLOUDDOCS_S3_BUCKET = "clouddocs-documents-315527"
+$env:AWS_REGION = "ap-south-1"
+$env:AWS_PROFILE = "cloud-docs"
+.\mvnw.cmd spring-boot:run
+```
+
+The AWS SDK uses its default credential/provider chain. `AWS_PROFILE=cloud-docs` makes the local AWS CLI profile available to that chain. The application does not create public URLs and the bucket must remain private. Do not commit access keys, secrets, session tokens, `~/.aws` files, or local environment files.
+
+S3 integration tests are disabled during normal test runs. To run the isolated upload/download/delete smoke test against the configured bucket:
+
+```powershell
+$env:CLOUDDOCS_S3_INTEGRATION_TEST = "true"
+$env:CLOUDDOCS_STORAGE_PROVIDER = "s3"
+$env:CLOUDDOCS_S3_BUCKET = "clouddocs-documents-315527"
+$env:AWS_REGION = "ap-south-1"
+$env:AWS_PROFILE = "cloud-docs"
+cd backend
+mvn test -Dtest=S3DocumentStorageIntegrationTest
+```
+
 Phase 2 APIs:
 
 - `GET /api/v1/me`

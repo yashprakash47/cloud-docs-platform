@@ -3,7 +3,7 @@ package com.clouddocs.storage.infrastructure;
 import com.clouddocs.storage.application.DocumentStorage;
 import com.clouddocs.storage.application.StoredObject;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -15,7 +15,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 @Component
-@Profile({"local", "test"})
+@ConditionalOnProperty(name = "clouddocs.storage.provider", havingValue = "local", matchIfMissing = true)
 public class LocalFileSystemStorage implements DocumentStorage {
     private final Path baseDirectory;
 

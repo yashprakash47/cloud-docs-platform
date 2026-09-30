@@ -6,6 +6,7 @@ import com.clouddocs.operations.api.InvalidRequestException;
 import com.clouddocs.operations.api.ResourceNotFoundException;
 import com.clouddocs.storage.application.DocumentStorage;
 import com.clouddocs.storage.application.StoredObject;
+import com.clouddocs.storage.application.StorageObjectKeyGenerator;
 import com.clouddocs.tenancy.application.TenantAuthorizationService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -41,7 +42,7 @@ public class UploadIntentService {
         documents.require(tenant, document);
         validate(filename, contentType, size);
         UUID id = UUID.randomUUID();
-        String reference = tenant + "/" + document + "/" + id;
+        String reference = StorageObjectKeyGenerator.documentVersion(tenant, document, id);
         intents.put(id, new PendingUpload(id, user.id(), tenant, document, filename, contentType, size, reference));
         return new UploadIntent(id, reference, maxFileSize);
     }
