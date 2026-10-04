@@ -32,3 +32,6 @@ application-local.properties
 *.log
 logs/
 
+
+# AWS private keys
+*.pem

@@ -2,6 +2,7 @@ package com.clouddocs.processing.infrastructure;
 
 import com.clouddocs.operations.api.ResourceNotFoundException;
 import com.clouddocs.processing.domain.*;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -28,11 +29,15 @@ public class JdbcProcessingRepository {
 
     public ProcessingJob insertQueued(UUID tenantId, UUID documentId, UUID versionId, String messageId) {
         UUID id = UUID.randomUUID();
-        jdbc.update("""
+        try {
+            jdbc.update("""
                 INSERT INTO processing_jobs(id, tenant_id, document_id, document_version_id, status, message_id)
-                VALUES (?, ?, ?, ?, 'QUEUED', ?)
-                ON CONFLICT (message_id) DO NOTHING
-                """, id, tenantId, documentId, versionId, messageId);
+                SELECT ?, ?, ?, ?, 'QUEUED', ?
+                WHERE NOT EXISTS (SELECT 1 FROM processing_jobs WHERE message_id=?)
+                """, id, tenantId, documentId, versionId, messageId, messageId);
+        } catch (DuplicateKeyException duplicate) {
+            // A concurrent duplicate delivery is resolved by the unique message_id key.
+        }
         return findByMessageId(messageId).orElseThrow(() -> new IllegalStateException("Processing job was not created"));
     }
 
