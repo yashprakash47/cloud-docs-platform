@@ -1,6 +1,6 @@
 # CloudDocs
 
-CloudDocs is a document management and document processing platform. This repository currently contains the Phase 1 local skeleton: a modular Spring Boot backend and a React/Vite frontend.
+CloudDocs is a document management and document processing platform. The repository contains a modular Spring Boot monolith, a React/Vite frontend, and an opt-in AWS event-processing path.
 
 ## Repository layout
 
@@ -15,8 +15,47 @@ docs/        Architecture decisions and project documentation
 - Java 21
 - Maven 3.9+ (the backend includes a Maven Wrapper entry point)
 - Node.js 20+
+- Docker Engine 24+ with Docker Compose v2 (for the containerized local stack)
 
-Phase 2 adds PostgreSQL support and Flyway migrations. By default, local startup uses an embedded H2 database in PostgreSQL compatibility mode so the skeleton can run without external services. PostgreSQL can be selected through the example configuration.
+The default process-based development mode uses an embedded H2 database and requires no AWS credentials. The Docker Compose mode uses PostgreSQL and runs the same Flyway migrations at startup.
+
+### Run with Docker Compose
+
+From the repository root:
+
+```powershell
+docker compose up --build
+```
+
+The stack starts PostgreSQL and the backend. PostgreSQL data is stored in the named `clouddocs-postgres-data` volume. The backend is available at `http://localhost:8080` and its health endpoint is `http://localhost:8080/actuator/health`.
+
+Useful commands:
+
+```powershell
+docker compose logs -f backend
+docker compose ps
+docker compose down
+```
+
+`docker compose down` stops and removes containers but keeps the named database volume. To remove local database data as well, use `docker compose down -v`.
+
+Compose defaults are intentionally local-only:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `CLOUDDOCS_DB_NAME` | `clouddocs` | PostgreSQL database name |
+| `CLOUDDOCS_DB_USERNAME` | `clouddocs` | Local database user |
+| `CLOUDDOCS_DB_PASSWORD` | `clouddocs-local-password` | Local-only database password |
+| `CLOUDDOCS_POSTGRES_PORT` | `5432` | Host PostgreSQL port |
+| `CLOUDDOCS_BACKEND_PORT` | `8080` | Host backend port |
+| `CLOUDDOCS_STORAGE_PROVIDER` | `local` | `local` or `s3` |
+| `CLOUDDOCS_PROCESSING_MESSAGE_SOURCE` | `local` | `local` or `sqs` |
+| `CLOUDDOCS_LOCAL_STORAGE_DIRECTORY` | `/tmp/clouddocs-files` | Container-local file storage |
+| `CLOUDDOCS_S3_BUCKET` | empty | Required only for S3 storage |
+| `CLOUDDOCS_PROCESSING_QUEUE_URL` | empty | Required only for SQS processing |
+| `AWS_REGION` | `ap-south-1` | AWS region when AWS adapters are enabled |
+
+For a fully local container stack, keep `CLOUDDOCS_STORAGE_PROVIDER=local` and `CLOUDDOCS_PROCESSING_MESSAGE_SOURCE=local`. No AWS credentials are needed. S3 and SQS modes remain configurable through environment variables, but require an appropriate credential provider and network access; credentials must never be baked into the image or committed to the repository.
 
 ## Run the backend
 
@@ -120,4 +159,4 @@ npm run typecheck
 npm run build
 ```
 
-Phase 2 intentionally contains no document workflows, AWS integration, Docker configuration, or microservices.
+The containerization setup is intentionally limited to a local Spring Boot + PostgreSQL stack. AWS deployment resources, microservices, Kubernetes, and production secrets are not included.

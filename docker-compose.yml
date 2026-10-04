@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${CLOUDDOCS_DB_NAME:-clouddocs}
+      POSTGRES_USER: ${CLOUDDOCS_DB_USERNAME:-clouddocs}
+      POSTGRES_PASSWORD: ${CLOUDDOCS_DB_PASSWORD:-clouddocs-local-password}
+    ports:
+      - "${CLOUDDOCS_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - clouddocs-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "${CLOUDDOCS_BACKEND_PORT:-8080}:8080"
+    environment:
+      SERVER_PORT: 8080
+      CLOUDDOCS_DB_URL: jdbc:postgresql://postgres:5432/${CLOUDDOCS_DB_NAME:-clouddocs}
+      CLOUDDOCS_DB_USERNAME: ${CLOUDDOCS_DB_USERNAME:-clouddocs}
+      CLOUDDOCS_DB_PASSWORD: ${CLOUDDOCS_DB_PASSWORD:-clouddocs-local-password}
+      CLOUDDOCS_DB_DRIVER: org.postgresql.Driver
+      CLOUDDOCS_STORAGE_PROVIDER: ${CLOUDDOCS_STORAGE_PROVIDER:-local}
+      CLOUDDOCS_LOCAL_STORAGE_DIRECTORY: /tmp/clouddocs-files
+      CLOUDDOCS_PROCESSING_MESSAGE_SOURCE: ${CLOUDDOCS_PROCESSING_MESSAGE_SOURCE:-local}
+      CLOUDDOCS_S3_BUCKET: ${CLOUDDOCS_S3_BUCKET:-}
+      CLOUDDOCS_PROCESSING_QUEUE_URL: ${CLOUDDOCS_PROCESSING_QUEUE_URL:-}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  clouddocs-postgres-data:
