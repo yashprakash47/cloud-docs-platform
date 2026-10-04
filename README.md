@@ -69,6 +69,26 @@ cd backend
 mvn test -Dtest=S3DocumentStorageIntegrationTest
 ```
 
+### SQS processing source
+
+Local development uses the in-memory processing message source by default. To enable the AWS SQS poller, provide the queue URL and region:
+
+```powershell
+$env:CLOUDDOCS_PROCESSING_MESSAGE_SOURCE = "sqs"
+$env:CLOUDDOCS_PROCESSING_QUEUE_URL = "https://sqs.ap-south-1.amazonaws.com/<account-id>/clouddocs-processing"
+$env:AWS_REGION = "ap-south-1"
+$env:AWS_PROFILE = "cloud-docs"
+$env:CLOUDDOCS_SQS_WAIT_TIME_SECONDS = "20"
+$env:CLOUDDOCS_SQS_MAX_MESSAGES = "10"
+$env:CLOUDDOCS_SQS_VISIBILITY_TIMEOUT_SECONDS = "120"
+cd backend
+mvnw.cmd spring-boot:run
+```
+
+The AWS SDK uses its default credential/provider chain; `AWS_PROFILE` is optional when another chain is configured. The poller deletes a message only after processing returns `SUCCEEDED`. Failed or malformed messages remain unacknowledged for SQS redelivery and DLQ handling. Never commit credentials or local AWS configuration.
+
+The SQS adapter smoke test is disabled during normal test runs. To enable it against the existing queue, set `CLOUDDOCS_SQS_INTEGRATION_TEST=true` and run `mvn test -Dtest=SqsProcessingMessageSourceIntegrationTest` from `backend/`.
+
 Phase 2 APIs:
 
 - `GET /api/v1/me`

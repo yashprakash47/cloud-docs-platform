@@ -39,6 +39,14 @@ clouddocs:
     local:
       user-header: X-User-Email
       auto-provision: true
+  processing:
+    message-source: ${CLOUDDOCS_PROCESSING_MESSAGE_SOURCE:local}
+    sqs:
+      queue-url: ${CLOUDDOCS_PROCESSING_QUEUE_URL:}
+      region: ${AWS_REGION:ap-south-1}
+      wait-time-seconds: ${CLOUDDOCS_SQS_WAIT_TIME_SECONDS:20}
+      max-messages: ${CLOUDDOCS_SQS_MAX_MESSAGES:10}
+      visibility-timeout-seconds: ${CLOUDDOCS_SQS_VISIBILITY_TIMEOUT_SECONDS:120}
 
 logging:
   level:

@@ -15,7 +15,8 @@ public class LocalProcessingMessageSource implements ProcessingMessageSource {
     }
 
     @Override
-    public Optional<ProcessingMessage> receive() {
-        return Optional.ofNullable(messages.poll());
+    public Optional<ProcessingMessageEnvelope> receive() {
+        return Optional.ofNullable(messages.poll())
+                .map(message -> new ProcessingMessageEnvelope(message, () -> { }));
     }
 }
