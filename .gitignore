@@ -5,8 +5,10 @@ target/
 
 # Node / Vite
 node_modules/
+dist/
 frontend/dist/
 frontend/.vite/
+.vite/
 npm-debug.log*
 
 # IDEs and OS files
@@ -23,15 +25,12 @@ Thumbs.db
 *.local
 application-local.yml
 application-local.properties
-!.env.example
-.env
-.env.*
+.env*
 !.env.example
 
 # Logs
 *.log
 logs/
-
 
 # AWS private keys
 *.pem
