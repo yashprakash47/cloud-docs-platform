@@ -123,27 +123,29 @@ export function extractFilenameFromContentDisposition(disposition: string | null
   return fallback;
 }
 
+const API_BASE = '';
+
 export const api = {
   async getHealth(): Promise<{ status: string }> {
-    const res = await fetch('/actuator/health');
+    const res = await fetch(`${API_BASE}/actuator/health`);
     if (!res.ok) throw new Error('Health check failed');
     return res.json();
   },
 
   async getCurrentUser(): Promise<User> {
-    const res = await fetch('/api/v1/me', { headers: getHeaders() });
+    const res = await fetch(`${API_BASE}/api/v1/me`, { headers: getHeaders() });
     if (!res.ok) throw new Error('Failed to fetch user');
     return res.json();
   },
 
   async getTenants(): Promise<Tenant[]> {
-    const res = await fetch('/api/v1/tenants', { headers: getHeaders() });
+    const res = await fetch(`${API_BASE}/api/v1/tenants`, { headers: getHeaders() });
     if (!res.ok) throw new Error('Failed to fetch workspaces');
     return res.json();
   },
 
   async createTenant(name: string): Promise<Tenant> {
-    const res = await fetch('/api/v1/tenants', {
+    const res = await fetch(`${API_BASE}/api/v1/tenants`, {
       method: 'POST',
       headers: getHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ name }),
@@ -153,13 +155,13 @@ export const api = {
   },
 
   async getDocuments(tenantId: string): Promise<PageResponse<DocumentItem>> {
-    const res = await fetch(`/api/v1/tenants/${tenantId}/documents`, { headers: getHeaders() });
+    const res = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/documents`, { headers: getHeaders() });
     if (!res.ok) throw new Error('Failed to fetch documents');
     return res.json();
   },
 
   async createDocument(tenantId: string, name: string, description?: string, folderId?: string | null): Promise<DocumentItem> {
-    const res = await fetch(`/api/v1/tenants/${tenantId}/documents`, {
+    const res = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/documents`, {
       method: 'POST',
       headers: getHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ name, description, folderId: folderId ?? null }),
@@ -169,7 +171,7 @@ export const api = {
   },
 
   async archiveDocument(tenantId: string, documentId: string): Promise<DocumentItem> {
-    const res = await fetch(`/api/v1/tenants/${tenantId}/documents/${documentId}/archive`, {
+    const res = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/documents/${documentId}/archive`, {
       method: 'POST',
       headers: getHeaders(),
     });
@@ -183,7 +185,7 @@ export const api = {
       throw new Error('File type is not allowed. Allowed types: text/plain (.txt), application/pdf (.pdf), and image/png (.png)');
     }
 
-    const intentRes = await fetch(`/api/v1/tenants/${tenantId}/documents/${documentId}/uploads/intents`, {
+    const intentRes = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/documents/${documentId}/uploads/intents`, {
       method: 'POST',
       headers: getHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
@@ -204,7 +206,7 @@ export const api = {
 
     const formData = new FormData();
     formData.append('file', filePayload);
-    const uploadRes = await fetch(`/api/v1/tenants/${tenantId}/documents/${documentId}/uploads/intents/${intent.id}/content`, {
+    const uploadRes = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/documents/${documentId}/uploads/intents/${intent.id}/content`, {
       method: 'POST',
       headers: getHeaders(),
       body: formData,
@@ -214,7 +216,7 @@ export const api = {
       throw new Error(err?.message || 'Failed to upload file content');
     }
 
-    const completeRes = await fetch(`/api/v1/tenants/${tenantId}/documents/${documentId}/uploads/intents/${intent.id}/complete`, {
+    const completeRes = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/documents/${documentId}/uploads/intents/${intent.id}/complete`, {
       method: 'POST',
       headers: getHeaders(),
     });
@@ -226,7 +228,7 @@ export const api = {
   },
 
   async downloadDocument(tenantId: string, documentId: string, versionId: string, fallbackName?: string): Promise<{ blob: Blob; filename: string }> {
-    const res = await fetch(`/api/v1/tenants/${tenantId}/documents/${documentId}/versions/${versionId}/content`, {
+    const res = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/documents/${documentId}/versions/${versionId}/content`, {
       headers: getHeaders(),
     });
     if (!res.ok) throw new Error(`Download failed with status ${res.status}`);
@@ -247,7 +249,7 @@ export const api = {
   },
 
   async getProcessingJobs(tenantId: string, documentId: string): Promise<ProcessingJob[]> {
-    const res = await fetch(`/api/v1/tenants/${tenantId}/documents/${documentId}/processing-jobs`, {
+    const res = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/documents/${documentId}/processing-jobs`, {
       headers: getHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch processing jobs');
@@ -255,7 +257,7 @@ export const api = {
   },
 
   async retryProcessingJob(tenantId: string, jobId: string): Promise<ProcessingJob> {
-    const res = await fetch(`/api/v1/tenants/${tenantId}/processing-jobs/${jobId}/retry`, {
+    const res = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/processing-jobs/${jobId}/retry`, {
       method: 'POST',
       headers: getHeaders(),
     });
@@ -265,7 +267,7 @@ export const api = {
 
   async getFolders(tenantId: string, parentId?: string | null): Promise<Folder[]> {
     const query = parentId ? `?parentId=${encodeURIComponent(parentId)}` : '';
-    const res = await fetch(`/api/v1/tenants/${tenantId}/folders${query}`, {
+    const res = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/folders${query}`, {
       headers: getHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch folders');
@@ -273,7 +275,7 @@ export const api = {
   },
 
   async createFolder(tenantId: string, name: string, parentId?: string | null): Promise<Folder> {
-    const res = await fetch(`/api/v1/tenants/${tenantId}/folders`, {
+    const res = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/folders`, {
       method: 'POST',
       headers: getHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ name, parentId: parentId ?? null }),
@@ -286,7 +288,7 @@ export const api = {
   },
 
   async getTags(tenantId: string, documentId: string): Promise<Tag[]> {
-    const res = await fetch(`/api/v1/tenants/${tenantId}/documents/${documentId}/tags`, {
+    const res = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/documents/${documentId}/tags`, {
       headers: getHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch tags');
@@ -294,7 +296,7 @@ export const api = {
   },
 
   async createTag(tenantId: string, name: string): Promise<Tag> {
-    const res = await fetch(`/api/v1/tenants/${tenantId}/tags`, {
+    const res = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/tags`, {
       method: 'POST',
       headers: getHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ name }),
@@ -307,7 +309,7 @@ export const api = {
   },
 
   async attachTag(tenantId: string, documentId: string, tagId: string): Promise<void> {
-    const res = await fetch(`/api/v1/tenants/${tenantId}/documents/${documentId}/tags/${tagId}`, {
+    const res = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/documents/${documentId}/tags/${tagId}`, {
       method: 'POST',
       headers: getHeaders(),
     });
@@ -318,7 +320,7 @@ export const api = {
   },
 
   async removeTag(tenantId: string, documentId: string, tagId: string): Promise<void> {
-    const res = await fetch(`/api/v1/tenants/${tenantId}/documents/${documentId}/tags/${tagId}`, {
+    const res = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/documents/${documentId}/tags/${tagId}`, {
       method: 'DELETE',
       headers: getHeaders(),
     });
