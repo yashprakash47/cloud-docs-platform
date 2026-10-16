@@ -1,25 +1,125 @@
-# CloudDocs
+# CloudDocs Platform
 
-CloudDocs is a document management and document processing platform. The repository contains a modular Spring Boot monolith, a React/Vite frontend, and an opt-in AWS event-processing path.
+[![Java 21](https://img.shields.io/badge/Java-21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://www.oracle.com/java/)
+[![Spring Boot 3.5.5](https://img.shields.io/badge/Spring_Boot-3.5.5-6DB33F?style=for-the-badge&logo=spring-boot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![AWS](https://img.shields.io/badge/AWS-Cloud-232F3E?style=for-the-badge&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/)
+[![CI](https://img.shields.io/github/actions/workflow/status/yashprakash47/cloud-docs-platform/ci.yml?branch=main&label=CI&style=for-the-badge)](https://github.com/yashprakash47/cloud-docs-platform/actions)
 
-## Repository layout
+> **Live Application**: [http://65.0.151.57:8080/](http://65.0.151.57:8080/)  
+> **Actuator Health**: [http://65.0.151.57:8080/actuator/health](http://65.0.151.57:8080/actuator/health)
+
+CloudDocs is a production-grade, multi-tenant document management and asynchronous processing platform. It integrates a modular Spring Boot 3.5.5 backend with an embedded React SPA, backed by Amazon Web Services (S3, SQS, Lambda, RDS PostgreSQL, EC2) and containerized workflows.
+
+---
+
+## Architecture Overview
 
 ```text
-backend/     Java 21 + Spring Boot + Maven backend
-frontend/    React + TypeScript + Vite frontend
-docs/        Architecture decisions and project documentation
++---------------------------------------------------------------------------------------+
+|                                     BROWSER CLIENT                                    |
+|             (React 18 + TypeScript + Vite SPA served via Spring Boot on EC2)          |
++---------------------------------------------------------------------------------------+
+        |                                        |                                  ^
+        | 1. Upload Intent & Metadata            | 2. File Upload                   | 7. Stream Download
+        v                                        v                                  |
++--------------------+                   +--------------------+                     |
+| Spring Boot Backend|                   |  Amazon S3 Bucket  |---------------------+
+| (EC2 on Port 8080) |                   | (Document Storage) |
++--------------------+                   +--------------------+
+        |                                        |
+        | Updates State                          | 3. ObjectCreated Event
+        v                                        v
++--------------------+                   +--------------------+
+| AWS RDS PostgreSQL |                   |   AWS Lambda Fn    |
+| (Multi-tenant DB)  |                   | (Event Transformer)|
++--------------------+                   +--------------------+
+        ^                                        |
+        |                                        | 4. Dispatches SQS Message
+        |                                        v
+        |                                +--------------------+
+        | 6. Updates Job Status          |   AWS SQS Queue    |
+        |    (Metadata / Status)         | (Processing Queue) |
+        |                                +--------------------+
+        |                                        |
+        +----------------------------------------+
+              5. Long-polling Consumer Worker
+                 (EC2 Spring Boot Worker)
 ```
 
-## Prerequisites
+---
 
-- Java 21
-- Maven 3.9+ (the backend includes a Maven Wrapper entry point)
-- Node.js 20+
-- Docker Engine 24+ with Docker Compose v2 (for the containerized local stack)
+## Key Features
 
-The default process-based development mode uses an embedded H2 database and requires no AWS credentials. The Docker Compose mode uses PostgreSQL and runs the same Flyway migrations at startup.
+- **Direct Upload Intent Lifecycle**: Multi-step file ingestion workflow that validates file constraints (`text/plain`, `application/pdf`, `image/png`), reserves an intent record, accepts binary content, and completes the upload.
+- **Event-Driven Asynchronous Processing Pipeline**: S3 upload triggers an AWS Lambda function that normalizes the event and dispatches it into an AWS SQS queue. The EC2 backend worker polls SQS, executes processing jobs with retry mechanisms, and logs lifecycle audits.
+- **Secure Document Storage & Downloads**: Content-addressed document storage supporting AWS S3 or container-local file storage. Direct streaming download endpoints preserve original filenames via sanitized `Content-Disposition` headers.
+- **Hierarchical Folders & Document Organization**: Dynamic folder tree creation, folder assignment, and filtering to organize enterprise documents across nested paths.
+- **Tag Management & Classification**: Tenant-scoped document tagging with real-time tag attachment, detachment, and color-coded chips.
+- **Multi-Tenant Isolation**: Tenant and user boundary enforcement ensuring complete isolation across workspaces, memberships, documents, and processing jobs.
+- **Unified Single-Host Production Deployment**: The compiled React SPA is embedded directly into Spring Boot static resources with client-side SPA route forwarding (`SpaWebConfig`), eliminating cross-origin CORS latency and complexity.
 
-### Run with Docker Compose
+---
+
+## Tech Stack Summary
+
+| Layer | Technology | Version / Specification |
+| --- | --- | --- |
+| **Backend Monolith** | Java, Spring Boot, Spring MVC | Java 21 (Temurin), Spring Boot 3.5.5 |
+| **Persistence & Migration** | Spring Data JPA, Hibernate, Flyway | PostgreSQL 18 / H2 in-memory, Flyway 4 migrations |
+| **Frontend SPA** | React, TypeScript, Vite | React 18, Vite 8, Node.js 20 |
+| **Cloud Storage** | Amazon S3 | AWS SDK for Java v2 (`s3`) |
+| **Messaging & Serverless** | AWS Lambda, Amazon SQS | Event-driven processing with visibility timeouts & DLQ |
+| **Infrastructure & Compute** | AWS EC2, Docker, AWS RDS | Amazon Linux 2023, Docker Engine 25, RDS PostgreSQL |
+| **CI / Automation** | GitHub Actions | Automated parallel backend testing and frontend build verification |
+
+---
+
+## Repository Structure
+
+```text
+cloud-docs-platform/
+├── .github/
+│   └── workflows/
+│       └── ci.yml             # GitHub Actions CI pipeline
+├── backend/
+│   ├── src/
+│   │   ├── main/
+│   │   │   ├── java/com/clouddocs/
+│   │   │   │   ├── document/   # Documents, Folders, Tags, Uploads, Downloads
+│   │   │   │   ├── identity/   # User provisioning and auth contexts
+│   │   │   │   ├── operations/ # CORS, SPA forwarding, Global exceptions
+│   │   │   │   ├── processing/ # SQS consumer, worker, processing jobs
+│   │   │   │   ├── storage/    # S3 and local file storage adapters
+│   │   │   │   └── tenancy/    # Multi-tenant isolation and memberships
+│   │   │   └── resources/
+│   │   │       ├── db/migration/ # Flyway SQL migrations
+│   │   │       ├── static/       # Compiled React production SPA assets
+│   │   │       └── application.yml
+│   │   └── test/               # Unit and integration test suites
+│   ├── pom.xml
+│   └── mvnw
+├── frontend/
+│   ├── src/
+│   │   ├── app/                # React components & UI views
+│   │   └── services/           # Typed API client
+│   ├── package.json
+│   └── vite.config.ts
+└── docker-compose.yml          # Local containerized PostgreSQL + backend
+```
+
+---
+
+## Local Development
+
+### 1. Prerequisites
+- **Java 21** (Eclipse Temurin recommended)
+- **Node.js 20+** and **npm**
+- **Docker Engine 24+** (optional, for Docker Compose stack)
+
+---
+
+### 2. Run with Docker Compose (PostgreSQL Stack)
 
 From the repository root:
 
@@ -27,136 +127,49 @@ From the repository root:
 docker compose up --build
 ```
 
-The stack starts PostgreSQL and the backend. PostgreSQL data is stored in the named `clouddocs-postgres-data` volume. The backend is available at `http://localhost:8080` and its health endpoint is `http://localhost:8080/actuator/health`.
+- Starts PostgreSQL and the Spring Boot backend.
+- Application URL: `http://localhost:8080/`
+- Actuator Health: `http://localhost:8080/actuator/health`
 
-Useful commands:
+---
 
+### 3. Run Locally (Stand-alone Process)
+
+#### Start the Backend (H2 In-Memory)
 ```powershell
-docker compose logs -f backend
-docker compose ps
-docker compose down
-```
-
-`docker compose down` stops and removes containers but keeps the named database volume. To remove local database data as well, use `docker compose down -v`.
-
-Compose defaults are intentionally local-only:
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `CLOUDDOCS_DB_NAME` | `clouddocs` | PostgreSQL database name |
-| `CLOUDDOCS_DB_USERNAME` | `clouddocs` | Local database user |
-| `CLOUDDOCS_DB_PASSWORD` | `clouddocs-local-password` | Local-only database password |
-| `CLOUDDOCS_POSTGRES_PORT` | `5432` | Host PostgreSQL port |
-| `CLOUDDOCS_BACKEND_PORT` | `8080` | Host backend port |
-| `CLOUDDOCS_STORAGE_PROVIDER` | `local` | `local` or `s3` |
-| `CLOUDDOCS_PROCESSING_MESSAGE_SOURCE` | `local` | `local` or `sqs` |
-| `CLOUDDOCS_LOCAL_STORAGE_DIRECTORY` | `/tmp/clouddocs-files` | Container-local file storage |
-| `CLOUDDOCS_S3_BUCKET` | empty | Required only for S3 storage |
-| `CLOUDDOCS_PROCESSING_QUEUE_URL` | empty | Required only for SQS processing |
-| `AWS_REGION` | `ap-south-1` | AWS region when AWS adapters are enabled |
-
-For a fully local container stack, keep `CLOUDDOCS_STORAGE_PROVIDER=local` and `CLOUDDOCS_PROCESSING_MESSAGE_SOURCE=local`. No AWS credentials are needed. S3 and SQS modes remain configurable through environment variables, but require an appropriate credential provider and network access; credentials must never be baked into the image or committed to the repository.
-
-## Run the backend
-
-From `backend/`:
-
-```powershell
-.\mvnw.cmd spring-boot:run
-```
-
-The application starts on `http://localhost:8080`. Health endpoints:
-
-- `http://localhost:8080/actuator/health`
-- `http://localhost:8080/actuator/health/readiness`
-
-The local development authentication adapter accepts an `X-User-Email` request header and auto-provisions that user when running with the default local profile. This is intentionally not a production authentication mechanism.
-
-To use PostgreSQL locally, copy `backend/src/main/resources/application-local.yml.example` to `application-local.yml` and provide `CLOUDDOCS_DB_PASSWORD` through the environment. Flyway applies migrations automatically at startup.
-
-### Document storage
-
-Local filesystem storage is the default and requires no AWS credentials:
-
-```powershell
-$env:CLOUDDOCS_STORAGE_PROVIDER = "local"
-$env:CLOUDDOCS_LOCAL_STORAGE_DIRECTORY = "C:\\temp\\clouddocs-files"
-.\mvnw.cmd spring-boot:run
-```
-
-To use the existing private S3 bucket, select the S3 provider and provide only configuration, never credentials:
-
-```powershell
-$env:CLOUDDOCS_STORAGE_PROVIDER = "s3"
-$env:CLOUDDOCS_S3_BUCKET = "clouddocs-documents-315527"
-$env:AWS_REGION = "ap-south-1"
-$env:AWS_PROFILE = "cloud-docs"
-.\mvnw.cmd spring-boot:run
-```
-
-The AWS SDK uses its default credential/provider chain. `AWS_PROFILE=cloud-docs` makes the local AWS CLI profile available to that chain. The application does not create public URLs and the bucket must remain private. Do not commit access keys, secrets, session tokens, `~/.aws` files, or local environment files.
-
-S3 integration tests are disabled during normal test runs. To run the isolated upload/download/delete smoke test against the configured bucket:
-
-```powershell
-$env:CLOUDDOCS_S3_INTEGRATION_TEST = "true"
-$env:CLOUDDOCS_STORAGE_PROVIDER = "s3"
-$env:CLOUDDOCS_S3_BUCKET = "clouddocs-documents-315527"
-$env:AWS_REGION = "ap-south-1"
-$env:AWS_PROFILE = "cloud-docs"
 cd backend
-mvn test -Dtest=S3DocumentStorageIntegrationTest
+.\mvnw.cmd spring-boot:run
 ```
+*The default profile runs on `http://localhost:8080` with in-memory H2 database and local file storage without requiring AWS credentials.*
 
-### SQS processing source
-
-Local development uses the in-memory processing message source by default. To enable the AWS SQS poller, provide the queue URL and region:
-
+#### Start Frontend Dev Server (Vite)
 ```powershell
-$env:CLOUDDOCS_PROCESSING_MESSAGE_SOURCE = "sqs"
-$env:CLOUDDOCS_PROCESSING_QUEUE_URL = "https://sqs.ap-south-1.amazonaws.com/<account-id>/clouddocs-processing"
-$env:AWS_REGION = "ap-south-1"
-$env:AWS_PROFILE = "cloud-docs"
-$env:CLOUDDOCS_SQS_WAIT_TIME_SECONDS = "20"
-$env:CLOUDDOCS_SQS_MAX_MESSAGES = "10"
-$env:CLOUDDOCS_SQS_VISIBILITY_TIMEOUT_SECONDS = "120"
-cd backend
-mvnw.cmd spring-boot:run
-```
-
-The AWS SDK uses its default credential/provider chain; `AWS_PROFILE` is optional when another chain is configured. The poller deletes a message only after processing returns `SUCCEEDED`. Failed or malformed messages remain unacknowledged for SQS redelivery and DLQ handling. Never commit credentials or local AWS configuration.
-
-The SQS adapter smoke test is disabled during normal test runs. To enable it against the existing queue, set `CLOUDDOCS_SQS_INTEGRATION_TEST=true` and run `mvn test -Dtest=SqsProcessingMessageSourceIntegrationTest` from `backend/`.
-
-Phase 2 APIs:
-
-- `GET /api/v1/me`
-- `GET,POST /api/v1/tenants`
-- `GET,POST /api/v1/tenants/{tenantId}/memberships`
-- `PATCH /api/v1/tenants/{tenantId}/memberships/{membershipId}/role`
-- `DELETE /api/v1/tenants/{tenantId}/memberships/{membershipId}`
-
-## Run the frontend
-
-From `frontend/`:
-
-```powershell
+cd frontend
 npm install
 npm run dev
 ```
+*Vite launches on `http://localhost:5173` with proxying to `/api` and `/actuator`.*
 
-The Vite development server starts on `http://localhost:5173`. Set `VITE_API_URL` when the backend runs at a different URL.
+---
 
-## Validate
+### 4. Build and Validate
+
+To run full automated verification locally:
 
 ```powershell
+# Run backend tests (36+ tests)
 cd backend
-.\mvnw.cmd test
-.\mvnw.cmd package
+.\mvnw.cmd clean test
 
+# Run frontend typecheck and production build
 cd ..\frontend
+npm ci
 npm run typecheck
 npm run build
 ```
 
-The containerization setup is intentionally limited to a local Spring Boot + PostgreSQL stack. AWS deployment resources, microservices, Kubernetes, and production secrets are not included.
+---
+
+## License
+
+This project is licensed under the MIT License.
