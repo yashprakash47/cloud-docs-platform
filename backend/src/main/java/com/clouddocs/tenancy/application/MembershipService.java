@@ -35,7 +35,7 @@ public class MembershipService {
     public Membership add(User actor, UUID tenantId, String email, Role role) {
         authorizationService.requireMembershipManagement(actor, tenantId);
         User member = userService.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User is not provisioned"));
+                .orElseGet(() -> userService.provisionLocalUser(email));
         return membershipRepository.insert(member.id(), tenantId, role);
     }
 

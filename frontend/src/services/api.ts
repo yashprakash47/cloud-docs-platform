@@ -72,6 +72,15 @@ export interface Tag {
   updatedAt: string;
 }
 
+export interface Membership {
+  id: string;
+  tenantId: string;
+  userId: string;
+  userEmail?: string;
+  role: 'TENANT_ADMIN' | 'COLLABORATOR' | 'VIEWER';
+  createdAt: string;
+}
+
 const DEFAULT_EMAIL = 'admin@clouddocs.com';
 
 function getHeaders(customHeaders: Record<string, string> = {}) {
@@ -327,6 +336,47 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => null);
       throw new Error(err?.message || 'Failed to remove tag');
+    }
+  },
+
+  async getMemberships(tenantId: string): Promise<Membership[]> {
+    const res = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/memberships`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch memberships');
+    const data = await res.json();
+    return data.map((m: any) => ({
+      ...m,
+      role: m.role === 'MEMBER' ? 'COLLABORATOR' : m.role,
+    }));
+  },
+
+  async addMembership(tenantId: string, email: string, role: string): Promise<Membership> {
+    const backendRole = role === 'COLLABORATOR' ? 'MEMBER' : role;
+    const res = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/memberships`, {
+      method: 'POST',
+      headers: getHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ email, role: backendRole }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.message || 'Failed to add member');
+    }
+    const data = await res.json();
+    return {
+      ...data,
+      role: data.role === 'MEMBER' ? 'COLLABORATOR' : data.role,
+    };
+  },
+
+  async removeMembership(tenantId: string, membershipId: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/memberships/${membershipId}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.message || 'Failed to remove member');
     }
   },
 };

@@ -22,8 +22,9 @@ public class JdbcMembershipRepository {
 
     public Optional<Membership> findByUserAndTenant(UUID userId, UUID tenantId) {
         List<Membership> memberships = jdbcTemplate.query(
-                "SELECT id, user_id, tenant_id, role, created_at, updated_at "
-                        + "FROM memberships WHERE user_id = ? AND tenant_id = ?",
+                "SELECT m.id, m.user_id, m.tenant_id, m.role, m.created_at, m.updated_at, u.email "
+                        + "FROM memberships m LEFT JOIN users u ON m.user_id = u.id "
+                        + "WHERE m.user_id = ? AND m.tenant_id = ?",
                 this::mapMembership,
                 userId,
                 tenantId);
@@ -32,8 +33,9 @@ public class JdbcMembershipRepository {
 
     public Optional<Membership> findByIdAndTenant(UUID membershipId, UUID tenantId) {
         List<Membership> memberships = jdbcTemplate.query(
-                "SELECT id, user_id, tenant_id, role, created_at, updated_at "
-                        + "FROM memberships WHERE id = ? AND tenant_id = ?",
+                "SELECT m.id, m.user_id, m.tenant_id, m.role, m.created_at, m.updated_at, u.email "
+                        + "FROM memberships m LEFT JOIN users u ON m.user_id = u.id "
+                        + "WHERE m.id = ? AND m.tenant_id = ?",
                 this::mapMembership,
                 membershipId,
                 tenantId);
@@ -42,8 +44,9 @@ public class JdbcMembershipRepository {
 
     public List<Membership> findByTenant(UUID tenantId) {
         return jdbcTemplate.query(
-                "SELECT id, user_id, tenant_id, role, created_at, updated_at "
-                        + "FROM memberships WHERE tenant_id = ? ORDER BY created_at",
+                "SELECT m.id, m.user_id, m.tenant_id, m.role, m.created_at, m.updated_at, u.email "
+                        + "FROM memberships m LEFT JOIN users u ON m.user_id = u.id "
+                        + "WHERE m.tenant_id = ? ORDER BY m.created_at",
                 this::mapMembership,
                 tenantId);
     }
@@ -69,12 +72,19 @@ public class JdbcMembershipRepository {
     }
 
     private Membership mapMembership(ResultSet resultSet, int rowNumber) throws SQLException {
+        String email = null;
+        try {
+            email = resultSet.getString("email");
+        } catch (SQLException ignored) {
+            // column not present
+        }
         return new Membership(
                 resultSet.getObject("id", UUID.class),
                 resultSet.getObject("user_id", UUID.class),
                 resultSet.getObject("tenant_id", UUID.class),
                 Role.valueOf(resultSet.getString("role")),
                 resultSet.getTimestamp("created_at").toInstant(),
-                resultSet.getTimestamp("updated_at").toInstant());
+                resultSet.getTimestamp("updated_at").toInstant(),
+                email);
     }
 }

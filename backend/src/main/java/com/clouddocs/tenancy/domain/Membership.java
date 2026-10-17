@@ -9,5 +9,10 @@ public record Membership(
         UUID tenantId,
         Role role,
         Instant createdAt,
-        Instant updatedAt) {
+        Instant updatedAt,
+        String userEmail) {
+
+    public Membership(UUID id, UUID userId, UUID tenantId, Role role, Instant createdAt, Instant updatedAt) {
+        this(id, userId, tenantId, role, createdAt, updatedAt, null);
+    }
 }

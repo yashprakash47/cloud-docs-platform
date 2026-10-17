@@ -6,6 +6,7 @@ import {
   ProcessingJob,
   Folder,
   Tag,
+  Membership,
   getExactMimeType,
   ALLOWED_MIME_TYPES,
   AllowedMimeType,
@@ -48,6 +49,15 @@ export function App() {
   const [activeDocForJobs, setActiveDocForJobs] = useState<DocumentItem | null>(null);
   const [jobs, setJobs] = useState<ProcessingJob[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState<boolean>(false);
+
+  // Members modal state
+  const [isMembersOpen, setIsMembersOpen] = useState<boolean>(false);
+  const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [isLoadingMembers, setIsLoadingMembers] = useState<boolean>(false);
+  const [memberError, setMemberError] = useState<string | null>(null);
+  const [newMemberEmail, setNewMemberEmail] = useState<string>('');
+  const [newMemberRole, setNewMemberRole] = useState<'COLLABORATOR' | 'VIEWER' | 'TENANT_ADMIN'>('COLLABORATOR');
+  const [isAddingMember, setIsAddingMember] = useState<boolean>(false);
 
   useEffect(() => {
     api.getHealth()
@@ -289,6 +299,54 @@ export function App() {
     }
   }
 
+  async function loadMemberships(tenantId: string) {
+    setIsLoadingMembers(true);
+    setMemberError(null);
+    try {
+      const list = await api.getMemberships(tenantId);
+      setMemberships(list);
+    } catch (err) {
+      setMemberError(err instanceof Error ? err.message : 'Failed to load team members');
+    } finally {
+      setIsLoadingMembers(false);
+    }
+  }
+
+  function openMembersModal() {
+    if (!selectedTenant) return;
+    setIsMembersOpen(true);
+    setNewMemberEmail('');
+    setNewMemberRole('COLLABORATOR');
+    setMemberError(null);
+    loadMemberships(selectedTenant.id);
+  }
+
+  async function handleAddMember(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedTenant || !newMemberEmail.trim()) return;
+    setIsAddingMember(true);
+    setMemberError(null);
+    try {
+      const created = await api.addMembership(selectedTenant.id, newMemberEmail.trim(), newMemberRole);
+      setMemberships(prev => [...prev, created]);
+      setNewMemberEmail('');
+    } catch (err) {
+      setMemberError(err instanceof Error ? err.message : 'Failed to add member');
+    } finally {
+      setIsAddingMember(false);
+    }
+  }
+
+  async function handleRemoveMember(membershipId: string) {
+    if (!selectedTenant) return;
+    try {
+      await api.removeMembership(selectedTenant.id, membershipId);
+      setMemberships(prev => prev.filter(m => m.id !== membershipId));
+    } catch (err) {
+      setMemberError(err instanceof Error ? err.message : 'Failed to remove member');
+    }
+  }
+
   const filteredDocuments = documents.filter(doc => {
     if (selectedFolderId === 'ALL') return true;
     if (selectedFolderId === 'UNFILED') return !doc.folderId;
@@ -319,6 +377,15 @@ export function App() {
               ))}
             </select>
           </div>
+
+          <button
+            type="button"
+            className="team-btn"
+            onClick={openMembersModal}
+            title="Manage workspace team members"
+          >
+            👥 Team Members
+          </button>
 
           <div className="health-badge">
             <span className={`status-dot ${healthStatus.toLowerCase()}`} />
@@ -699,6 +766,104 @@ export function App() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Team Members Modal */}
+      {isMembersOpen && selectedTenant && (
+        <div className="modal-backdrop" onClick={() => setIsMembersOpen(false)}>
+          <div className="modal-card modal-members" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Workspace Team: {selectedTenant.name}</h3>
+              <button className="close-btn" onClick={() => setIsMembersOpen(false)}>✕</button>
+            </div>
+
+            <p className="modal-sub">
+              Manage member access and role permissions for this workspace.
+            </p>
+
+            {memberError && <div className="form-error">{memberError}</div>}
+
+            {isLoadingMembers ? (
+              <p style={{ margin: '16px 0', fontSize: '13px', color: '#64748b' }}>Loading team members...</p>
+            ) : memberships.length === 0 ? (
+              <p style={{ margin: '16px 0', fontSize: '13px', color: '#64748b' }}>No members found in this workspace.</p>
+            ) : (
+              <div className="members-list">
+                {memberships.map(m => {
+                  const email = m.userEmail || `User (${m.userId.substring(0, 8)}...)`;
+                  const isCurrentAdmin = email === 'admin@clouddocs.com';
+                  return (
+                    <div key={m.id} className="member-item">
+                      <div className="member-info">
+                        <div className="member-avatar">
+                          {email.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="member-details">
+                          <span className="member-email">{email}</span>
+                          <span className="member-id">ID: {m.id.substring(0, 8)}...</span>
+                        </div>
+                      </div>
+                      <div className="member-meta">
+                        <span className={`role-badge ${m.role === 'TENANT_ADMIN' ? 'role-admin' : m.role === 'COLLABORATOR' ? 'role-collaborator' : 'role-viewer'}`}>
+                          {m.role === 'TENANT_ADMIN' ? 'Admin' : m.role === 'COLLABORATOR' ? 'Collaborator' : 'Viewer'}
+                        </span>
+                        <button
+                          type="button"
+                          className="btn-remove-member"
+                          disabled={isCurrentAdmin}
+                          onClick={() => handleRemoveMember(m.id)}
+                          title={isCurrentAdmin ? "Cannot remove current admin" : "Remove member"}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="add-member-section">
+              <h4>Add Member</h4>
+              <form onSubmit={handleAddMember} className="add-member-form">
+                <input
+                  type="email"
+                  placeholder="name@company.com"
+                  value={newMemberEmail}
+                  onChange={e => setNewMemberEmail(e.target.value)}
+                  required
+                  disabled={isAddingMember}
+                />
+                <select
+                  value={newMemberRole}
+                  onChange={e => setNewMemberRole(e.target.value as any)}
+                  disabled={isAddingMember}
+                >
+                  <option value="COLLABORATOR">COLLABORATOR</option>
+                  <option value="VIEWER">VIEWER</option>
+                  <option value="TENANT_ADMIN">TENANT_ADMIN</option>
+                </select>
+                <button
+                  type="submit"
+                  className="primary-btn"
+                  disabled={isAddingMember || !newMemberEmail.trim()}
+                >
+                  {isAddingMember ? 'Adding...' : 'Add Member'}
+                </button>
+              </form>
+            </div>
+
+            <div className="modal-actions" style={{ marginTop: '20px' }}>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => setIsMembersOpen(false)}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
