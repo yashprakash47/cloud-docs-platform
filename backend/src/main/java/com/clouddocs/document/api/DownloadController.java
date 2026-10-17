@@ -27,14 +27,25 @@ public class DownloadController {
     }
 
     @GetMapping
-    public ResponseEntity<InputStreamResource> download(@PathVariable UUID tenantId, @PathVariable UUID documentId,
-                                                        @PathVariable UUID versionId, HttpServletRequest request) {
+    public ResponseEntity<InputStreamResource> download(
+            @PathVariable UUID tenantId,
+            @PathVariable UUID documentId,
+            @PathVariable UUID versionId,
+            @RequestParam(defaultValue = "attachment") String disposition,
+            HttpServletRequest request) {
         DocumentVersion version = documents.requireVersionForRead(authentication.requireCurrentUser(request), tenantId, documentId, versionId);
-        if (!storage.exists(version.storageReference())) throw new ResourceNotFoundException("Stored document content was not found");
+        if (!storage.exists(version.storageReference())) {
+            throw new ResourceNotFoundException("Stored document content was not found");
+        }
         try {
-            ContentDisposition disposition = ContentDisposition.attachment().filename(version.originalFilename()).build();
-            return ResponseEntity.ok().contentType(MediaType.parseMediaType(version.contentType()))
-                    .contentLength(version.sizeBytes()).header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+            ContentDisposition contentDisposition = "inline".equalsIgnoreCase(disposition)
+                    ? ContentDisposition.inline().filename(version.originalFilename()).build()
+                    : ContentDisposition.attachment().filename(version.originalFilename()).build();
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(version.contentType()))
+                    .contentLength(version.sizeBytes())
+                    .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
                     .body(new InputStreamResource(storage.download(version.storageReference())));
         } catch (IOException | IllegalArgumentException exception) {
             throw new ResourceNotFoundException("Stored document content was not found");

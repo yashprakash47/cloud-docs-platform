@@ -16,12 +16,13 @@ export interface DocumentItem {
   tenantId: string;
   name: string;
   description?: string;
-  status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
+  status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' | 'TRASH';
   currentVersionId?: string;
   folderId?: string;
   createdAt: string;
   updatedAt: string;
   archivedAt?: string;
+  deletedAt?: string;
 }
 
 export interface DocumentVersion {
@@ -186,6 +187,60 @@ export const api = {
     });
     if (!res.ok) throw new Error('Failed to archive document');
     return res.json();
+  },
+
+  async moveToTrash(tenantId: string, documentId: string): Promise<DocumentItem> {
+    const res = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/documents/${documentId}/trash`, {
+      method: 'POST',
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to move document to trash');
+    return res.json();
+  },
+
+  async restoreDocument(tenantId: string, documentId: string): Promise<DocumentItem> {
+    const res = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/documents/${documentId}/restore`, {
+      method: 'POST',
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to restore document');
+    return res.json();
+  },
+
+  async unarchiveDocument(tenantId: string, documentId: string): Promise<DocumentItem> {
+    const res = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/documents/${documentId}/unarchive`, {
+      method: 'POST',
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to unarchive document');
+    return res.json();
+  },
+
+  async permanentlyDeleteDocument(tenantId: string, documentId: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/documents/${documentId}/permanent`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to permanently delete document');
+  },
+
+  async viewDocumentBlob(tenantId: string, documentId: string, versionId: string): Promise<{ url: string; contentType: string; textContent?: string }> {
+    const res = await fetch(`${API_BASE}/api/v1/tenants/${tenantId}/documents/${documentId}/versions/${versionId}/content?disposition=inline`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error(`Failed to load document content (${res.status})`);
+    const contentType = res.headers.get('content-type') || 'application/octet-stream';
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    let textContent: string | undefined = undefined;
+    if (contentType.includes('text/plain')) {
+      try {
+        textContent = await blob.text();
+      } catch (err) {
+        console.error('Failed to read blob text', err);
+      }
+    }
+    return { url, contentType, textContent };
   },
 
   async uploadDocumentFile(tenantId: string, documentId: string, file: File): Promise<DocumentVersion> {
