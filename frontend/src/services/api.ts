@@ -82,11 +82,23 @@ export interface Membership {
   createdAt: string;
 }
 
+export function getCurrentUserEmail(): string | null {
+  return localStorage.getItem('clouddocs_user_email');
+}
+
+export function setCurrentUserEmail(email: string): void {
+  localStorage.setItem('clouddocs_user_email', email);
+}
+
+export function clearCurrentUserEmail(): void {
+  localStorage.removeItem('clouddocs_user_email');
+}
+
 const DEFAULT_EMAIL = 'admin@clouddocs.com';
 
 function getHeaders(customHeaders: Record<string, string> = {}) {
   return {
-    'X-User-Email': DEFAULT_EMAIL,
+    'X-User-Email': getCurrentUserEmail() || DEFAULT_EMAIL,
     ...customHeaders,
   };
 }

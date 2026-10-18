@@ -10,10 +10,16 @@ import {
   getExactMimeType,
   ALLOWED_MIME_TYPES,
   AllowedMimeType,
+  getCurrentUserEmail,
+  setCurrentUserEmail,
+  clearCurrentUserEmail,
 } from '../services/api';
+import { LandingPage } from './LandingPage';
+import { Footer } from './Footer';
 import './app.css';
 
 export function App() {
+  const [userEmail, setUserEmail] = useState<string | null>(() => getCurrentUserEmail());
   const [healthStatus, setHealthStatus] = useState<string>('CHECKING');
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
@@ -94,18 +100,28 @@ export function App() {
     setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
   }
 
+  function handleSignOut() {
+    clearCurrentUserEmail();
+    setUserEmail(null);
+    setDocuments([]);
+    setFolders([]);
+    setSelectedTenant(null);
+  }
+
   useEffect(() => {
     api.getHealth()
       .then(res => setHealthStatus(res.status))
       .catch(() => setHealthStatus('DOWN'));
 
-    api.getTenants()
-      .then(data => {
-        setTenants(data);
-        if (data.length > 0) setSelectedTenant(data[0]);
-      })
-      .catch(err => console.error('Failed to load workspaces:', err));
-  }, []);
+    if (userEmail) {
+      api.getTenants()
+        .then(data => {
+          setTenants(data);
+          if (data.length > 0) setSelectedTenant(data[0]);
+        })
+        .catch(err => console.error('Failed to load workspaces:', err));
+    }
+  }, [userEmail]);
 
   useEffect(() => {
     if (!selectedTenant) return;
@@ -538,6 +554,20 @@ export function App() {
     );
   }
 
+  if (!userEmail) {
+    return (
+      <LandingPage
+        healthStatus={healthStatus}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onLogin={(email: string) => {
+          setCurrentUserEmail(email);
+          setUserEmail(email);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="app-layout">
       {/* Mobile Top Bar */}
@@ -740,11 +770,24 @@ export function App() {
         {/* User Card at bottom of sidebar */}
         <div className="sidebar-bottom">
           <div className="user-profile-badge">
-            <div className="user-avatar-circle">A</div>
+            <div className="user-avatar-circle">{userEmail ? userEmail.charAt(0).toUpperCase() : 'U'}</div>
             <div className="user-info-text">
-              <span className="user-name">Workspace Admin</span>
-              <span className="user-email-text">admin@clouddocs.com</span>
+              <span className="user-name">{userEmail?.split('@')[0] || 'User'}</span>
+              <span className="user-email-text" title={userEmail || ''}>{userEmail || ''}</span>
             </div>
+            <button
+              type="button"
+              className="user-signout-mini-btn"
+              onClick={handleSignOut}
+              title="Sign Out"
+              aria-label="Sign Out"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+            </button>
           </div>
         </div>
       </aside>
@@ -784,6 +827,20 @@ export function App() {
             <div className="system-health-pill" title="AWS EC2 Spring Boot Server Status">
               <span className={`health-dot ${healthStatus.toLowerCase()}`} />
               <span className="health-label">EC2: {healthStatus}</span>
+            </div>
+
+            {/* User Profile Chip with Sign Out */}
+            <div className="header-user-chip">
+              <div className="user-avatar-circle small">{userEmail ? userEmail.charAt(0).toUpperCase() : 'U'}</div>
+              <span className="header-user-email" title={userEmail || ''}>{userEmail}</span>
+              <button
+                type="button"
+                className="btn-signout"
+                onClick={handleSignOut}
+                title="Sign out of CloudDocs"
+              >
+                Sign Out
+              </button>
             </div>
 
             {/* Theme Toggle Button */}
@@ -1206,6 +1263,7 @@ export function App() {
               )}
             </div>
           </div>
+          <Footer />
         </main>
       </div>
 
